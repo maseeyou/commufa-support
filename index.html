@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>訪問サポート見積書</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--ink:#111;--val:#0b2a78;--acc:#1d4ed8;--hl:#fff3c4}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e6e7ea;color:var(--ink);font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","YuGothic","Meiryo","Noto Sans JP",sans-serif;-webkit-text-size-adjust:100%}
+button{font-family:inherit;cursor:pointer}
+
+/* ===== 入力パネル ===== */
+#panel{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid #c9c9cf;box-shadow:0 2px 6px rgba(0,0,0,.08);padding:8px 12px 6px}
+#panel .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-bottom:6px}
+#panel.collapsed .row.opt-row{display:none}
+.fld{display:flex;align-items:center;gap:6px;font-size:13px}
+.fld>label,.fld>.lb{color:#555;font-size:12px;white-space:nowrap}
+.fld input[type=text],.fld input[type=date],.fld input[type=time]{font-size:16px;height:34px;border:1px solid #aaa;border-radius:7px;padding:0 8px;background:#fff;color:#111}
+#in_name{width:150px}#in_worker{width:96px}#in_t1,#in_t2{width:112px}
+.seg{display:inline-flex;border:1px solid #999;border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:0 12px;font-size:14px;height:34px;color:#222}
+.seg button+button{border-left:1px solid #999}
+.seg button.on{background:var(--acc);color:#fff}
+.actions{margin-left:auto;display:flex;gap:6px;align-items:center}
+.btn{height:36px;padding:0 14px;border:1px solid #999;border-radius:8px;background:#fff;font-size:14px;color:#222}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.btn.sm{padding:0 10px}
+#modeLbl{font-size:12px;padding:5px 9px;border-radius:7px;background:#fff3c4;border:1px solid #e5cf6e;white-space:nowrap}
+
+/* ===== 帳票 ===== */
+#stage{padding:14px 8px 60px;overflow-x:auto}
+#wrap{position:relative;margin:0 auto}
+#scaler{position:absolute;left:0;top:0;width:794px;transform-origin:0 0}
+.page{width:794px;height:1123px;background:#fff;position:relative;overflow:hidden;padding:22px 28px 18px;box-shadow:0 2px 10px rgba(0,0,0,.18);margin-bottom:16px;display:flex;flex-direction:column;font-size:10px;line-height:1.25}
+.page>*{flex:none}
+table{border-collapse:collapse;table-layout:fixed}
+.val{color:var(--val);font-weight:600}
+.page input,.page textarea{font-family:inherit;color:var(--val);font-weight:600;border:0;outline:none;margin:0;border-radius:0;-webkit-appearance:none;appearance:none}
+
+/* 見出し */
+.p1-head{display:flex;justify-content:space-between;align-items:flex-end;height:30px}
+.ttl{font-size:19.5px;font-weight:800;letter-spacing:.3px;white-space:nowrap}
+.ttl small{font-size:15px;font-weight:800}
+.corp{text-align:right;font-size:10px;line-height:1.15}
+.corp i{font-style:italic}
+.brand{font-size:17px;font-weight:900;letter-spacing:1px}
+.mcline{height:11px;position:relative;font-size:7.4px}
+.mcline span{position:absolute;white-space:nowrap}
+
+/* 基本情報ボックス */
+.infowrap{display:flex;justify-content:space-between;height:44px}
+.info td{border:1px solid #111;height:22px;padding:0 3px;font-size:10px;white-space:nowrap;overflow:hidden}
+.info .cust{position:relative;cursor:pointer}
+.cust .val{position:absolute;left:6px;top:9px;font-size:16px}
+.cust .sama{position:absolute;right:8px;top:6px;font-size:14px}
+.cust .sei{position:absolute;right:4px;bottom:2px;font-size:8px}
+.info .lbl{text-align:center;font-size:10px}
+.info .dv{text-align:center;cursor:pointer}
+.info .dv .val{display:inline-block;min-width:24px;text-align:center}
+.info .dv .val.y{min-width:34px}
+.info .vlbl{font-size:7.5px;line-height:1.05;text-align:center;padding:0;white-space:normal}
+.info .worker{text-align:center;font-size:13px;cursor:pointer}
+.info .cbc{cursor:pointer}
+.info2 td{border:1px solid #111;height:22px;padding:0 4px;font-size:9.6px;white-space:nowrap}
+.info2 .opts{text-align:center}
+.cb{display:inline-block;width:10px;height:10px;border:1px solid #111;vertical-align:-1px;margin-right:3px;font-size:10px;line-height:8px;text-align:center;color:var(--val);font-weight:800;cursor:pointer}
+.opt{display:inline-block;padding:0 3px;border:1.3px solid transparent;border-radius:50%;cursor:pointer;line-height:12px}
+.opt.on{border-color:var(--val);color:var(--val);font-weight:700}
+
+/* メニュー表 */
+.mtitle{height:18px;position:relative;font-weight:800;font-size:12px;line-height:18px}
+.mtitle .arw{position:absolute;bottom:0;font-size:9px;line-height:9px}
+.mt{display:flex}
+.mt .mtab+.mtab{margin-left:-1px}
+.mtab{font-size:9.6px}
+.mtab td,.mtab th{border:1px solid #111;height:15px;padding:0 2px;white-space:nowrap;overflow:hidden}
+.mtab th{background:#d2d2d2;font-weight:600;font-size:8.4px;line-height:1.05;text-align:center;padding:0}
+.mtab thead tr:first-child th{height:15px}
+.mtab thead tr:nth-child(2) th{height:11px}
+.mtab col.cp{width:46px}.mtab col.cq{width:24px}
+.mtab td.pr{text-align:right;padding-right:3px}
+.mtab td.q{padding:0;text-align:center}
+.mtab tr.sec td{text-align:center;font-weight:700}
+.mtab tr.vn td{font-weight:700;padding-left:4px}
+.mtab tr.xr td{height:31px}
+.mtab .nt{font-size:8.6px;font-weight:400}
+.q input{width:100%;height:100%;text-align:center;font-size:11px;background:rgba(29,78,216,.06);padding:0}
+.q input.ro{background:rgba(0,0,0,.05)}
+.xr .nm input{width:100%;height:100%;font-size:9.6px;background:rgba(29,78,216,.04);padding:0 2px}
+.xr .pr input{width:100%;height:100%;font-size:9.6px;text-align:right;background:rgba(29,78,216,.04);padding:0}
+.xr input.ro{background:transparent}
+.slash{background:linear-gradient(to bottom right,transparent calc(50% - .7px),#111 50%,transparent calc(50% + .7px))}
+#pages.hlS .ps,#pages.hlN .pn{background:var(--hl)}
+.mnote{display:flex;justify-content:space-between;height:15px;line-height:15px;font-size:9.4px}
+.mnote b{font-weight:800}
+
+/* 作業料金 */
+.feeblk{display:flex;height:300px;margin-top:6px}
+.feeL{width:404px}
+.feeR{flex:1;padding-left:22px;font-size:9.4px;line-height:1.48}
+.fee th{font-size:10px;text-align:center;height:17px;font-weight:700}
+.fee th.fhl{text-align:left;font-size:12.5px;font-weight:800}
+.fee td{border:1px solid #111;padding:0 3px;font-size:9.6px;vertical-align:top}
+.fee td.gp{border-top:none;border-bottom:none}
+.fee td.lb b{font-weight:800}
+.fee .sub{font-size:8px;text-align:right;padding-right:4px}
+.fee .small{font-size:7.8px;line-height:1.35;padding-top:1px}
+.fee tr.h34 td{height:32px}.fee tr.h24 td{height:23px}.fee tr.h28 td{height:27px}
+.amt{position:relative}
+.amt .yen{position:absolute;right:3px;bottom:2px;font-size:9.6px}
+.amt .tot{position:absolute;right:16px;bottom:1px;font-size:13px;color:var(--val);font-weight:700}
+.amt .tiny{position:absolute;left:2px;top:0;font-size:7px}
+.amt .minus{position:absolute;left:3px;bottom:2px}
+.amt input{position:absolute;right:15px;bottom:1px;width:66px;height:17px;text-align:right;font-size:12.5px;background:rgba(29,78,216,.06);padding:0}
+.amt input.ro{background:rgba(0,0,0,.05)}
+.fee td.thick{border:2.6px solid #111}
+.same{text-align:right;font-size:10.5px;margin-top:3px;padding-right:10px}
+.same .cb{width:12px;height:12px;line-height:10px;font-size:11px}
+.sigbox{display:flex;border:2.2px solid #111;height:44px;margin-top:20px;width:394px}
+.siglbl{width:96px;border-right:1px solid #111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10.5px;flex:none}
+.sigarea{flex:1;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.sigarea img{max-height:92%;max-width:96%}
+.sighint{color:#9aa3b8;font-size:10px}
+.nh{font-weight:700;margin-top:0}
+.ni{padding-left:1.25em;text-indent:-1.25em}
+.ni2{padding-left:3.1em;text-indent:-1.3em}
+
+/* 作業詳細 */
+.dt-h{height:17px;margin-top:10px;display:flex;align-items:flex-end;gap:18px}
+.dt-h b{font-size:12.5px;font-weight:800}
+.dt-h span{font-size:9.6px}
+.dt-box{flex:1 1 auto!important;border:2.2px solid #111;margin-top:2px;min-height:120px}
+.dt-box textarea{width:100%;height:100%;resize:none;padding:6px 8px;font-size:12px;line-height:1.65;background:transparent}
+.sigrow2{display:flex;border:2.2px solid #111;height:46px;margin-top:14px}
+.sigrow2 .sigarea{flex:none;width:290px}
+.confirm{flex:1;border-left:1px solid #111;font-size:9.4px;line-height:1.7;padding:4px 6px;display:flex;flex-direction:column;justify-content:center}
+.foot{display:flex;justify-content:space-between;height:16px;margin-top:6px;font-size:9.4px;line-height:16px}
+.foot .tel{font-size:12px;font-weight:800;letter-spacing:1px}
+
+/* 裏面 */
+.p2-head{height:20px;display:flex;justify-content:space-between;align-items:flex-end;line-height:16px}
+.p2-head b{font-size:12px;font-weight:800}
+.p2-head small{font-size:9.5px}
+.p2-head .r{font-size:10px}
+.p2 .mtab td{height:16.1px;font-size:9.4px}
+.p2 .mtab td.pr{font-size:9.4px}
+.p2 .q input{font-size:10.5px}
+.foot2{display:flex;justify-content:space-between;font-size:9.4px;margin-top:3px}
+
+/* PDF出力用 */
+.as-text{display:flex;align-items:center;width:100%;height:100%;color:var(--val);font-weight:600;white-space:nowrap;overflow:hidden}
+.as-text.qi{justify-content:center;font-size:11px}
+.as-text.xn{justify-content:flex-start;padding:0 2px;font-size:9.6px}
+.as-text.xp{justify-content:flex-end;font-size:9.6px}
+.as-text.gi,.as-text.ai{position:absolute;right:15px;bottom:1px;width:66px;height:17px;justify-content:flex-end;font-size:12.5px}
+.as-text.ta{display:block;white-space:pre-wrap;padding:6px 8px;font-size:12px;line-height:1.65;overflow:hidden}
+body.exporting .sighint{display:none}
+
+/* 署名モーダル */
+.modal{position:fixed;inset:0;background:rgba(15,20,30,.55);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal[hidden]{display:none}
+.sheet{background:#fff;border-radius:14px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.sheet-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:15px}
+.sheet-h span{font-size:12px;color:#666}
+#sigCanvas{display:block;border:1.5px dashed #9aa3b8;border-radius:8px;background:#fff;touch-action:none}
+.sheet-f{display:flex;gap:8px;margin-top:10px}
+#busy{position:fixed;inset:0;background:rgba(255,255,255,.7);z-index:120;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
+#busy[hidden]{display:none}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:9px;font-size:14px;z-index:130;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:.92}
+
+@media print{
+  @page{size:A4 portrait;margin:0}
+  html,body{background:#fff}
+  #panel,#toast,#busy,.modal{display:none!important}
+  #stage{padding:0}
+  #wrap{width:auto!important;height:auto!important}
+  #scaler{position:static;transform:none!important}
+  .page{box-shadow:none;margin:0;page-break-after:always;break-after:page}
+  .page input,.page textarea{background:transparent!important}
+  #pages.hlS .ps,#pages.hlN .pn{background:none}
+  .sighint{display:none}
+}
+</style>
+</head>
+<body>
+
+<header id="panel">
+  <div class="row">
+    <div class="fld"><label for="in_name">顧客名</label><input id="in_name" type="text" placeholder="姓のみ" autocomplete="off"><span class="lb">様</span></div>
+    <div class="fld"><span class="lb">訪問種別</span><div class="seg" data-key="visit"><button data-v="単独訪問">単独訪問</button><button data-v="同時対応">同時対応</button></div></div>
+    <div class="fld"><span class="lb">区分</span><div class="seg" data-key="kubun"><button data-v="普">普</button><button data-v="特">特</button></div></div>
+    <div class="actions">
+      <button class="btn sm" id="zOut" title="縮小">－</button>
+      <button class="btn sm" id="zFit">幅に合わせる</button>
+      <button class="btn sm" id="zIn" title="拡大">＋</button>
+      <button class="btn sm" id="togglePanel">▲</button>
+      <button class="btn" id="btnNew">新規</button>
+      <button class="btn" id="btnPrint">印刷</button>
+      <button class="btn primary" id="btnPdf">PDF保存</button>
+    </div>
+  </div>
+  <div class="row opt-row">
+    <div class="fld"><label for="in_date">作業日</label><input id="in_date" type="date"></div>
+    <div class="fld"><span class="lb">時間</span><input id="in_t1" type="time"><span>〜</span><input id="in_t2" type="time"></div>
+    <div class="fld"><label for="in_worker">作業者</label><input id="in_worker" type="text" autocomplete="off"></div>
+    <div class="fld"><span class="lb">MC登録</span><div class="seg" data-key="mc"><button data-v="する">する</button><button data-v="しない">しない</button></div></div>
+  </div>
+  <div class="row opt-row">
+    <div class="fld"><span class="lb">安心サポート(Plus)契約</span><div class="seg" data-key="plus"><button data-v="あり">あり</button><button data-v="なし">なし</button></div></div>
+    <div class="fld"><span class="lb">過去1年以内の割引適用</span><div class="seg" data-key="past"><button data-v="あり">あり</button><button data-v="なし">なし</button></div></div>
+    <span id="modeLbl"></span>
+  </div>
+</header>
+
+<main id="stage"><div id="wrap"><div id="scaler"><div id="pages">
+
+<!-- ================= 表面 ================= -->
+<section class="page p1" id="p1">
+  <div class="p1-head">
+    <div class="ttl">おまかせ訪問ダブルサポート　見積書 <small>兼</small> 作業報告書</div>
+    <div class="corp"><div>中部テレコミュニケーション株式会社（<i>ctc</i>）</div><div class="brand">コミュファ光</div></div>
+  </div>
+  <div class="mcline"><span style="left:262px;top:1px">┏▶ MC登録する</span></div>
+  <div class="infowrap">
+    <table class="info" style="width:548px">
+      <colgroup><col style="width:150px"><col style="width:76px"><col style="width:32px"><col style="width:38px"><col style="width:148px"><col style="width:14px"><col style="width:90px"></colgroup>
+      <tr>
+        <td rowspan="2" class="cust" data-focus="in_name"><span class="val" id="v_name"></span><span class="sama">様</span><span class="sei">(姓のみ)</span></td>
+        <td class="cbc" data-cbk="visit:単独訪問"><span class="cb" data-cb="visit:単独訪問"></span>単独訪問</td>
+        <td class="cbc" data-cbk="kubun:普"><span class="cb" data-cb="kubun:普"></span>普</td>
+        <td class="lbl">作業日</td>
+        <td class="dv" data-focus="in_date"><span class="val y" id="v_y"></span>年<span class="val" id="v_m"></span>月<span class="val" id="v_d"></span>日</td>
+        <td rowspan="2" class="vlbl">作<br>業<br>者</td>
+        <td rowspan="2" class="worker" data-focus="in_worker"><span class="val" id="v_worker"></span></td>
+      </tr>
+      <tr>
+        <td class="cbc" data-cbk="visit:同時対応"><span class="cb" data-cb="visit:同時対応"></span>同時対応</td>
+        <td class="cbc" data-cbk="kubun:特"><span class="cb" data-cb="kubun:特"></span>特</td>
+        <td class="lbl">時間</td>
+        <td class="dv" data-focus="in_t1"><span class="val" id="v_t1"></span>　〜　<span class="val" id="v_t2"></span></td>
+      </tr>
+    </table>
+    <table class="info2" style="width:182px">
+      <colgroup><col style="width:124px"><col style="width:58px"></colgroup>
+      <tr><td>安心サポート(Plus)契約</td><td class="opts"><span class="opt" data-opt="plus:あり">あり</span> <span class="opt" data-opt="plus:なし">なし</span></td></tr>
+      <tr><td>⇒ 過去1年以内の割引適用</td><td class="opts"><span class="opt" data-opt="past:あり">あり</span> <span class="opt" data-opt="past:なし">なし</span></td></tr>
+    </table>
+  </div>
+  <div class="mcline"><span style="left:262px;top:0">┗▶ MC登録しない＆安サポ確認不要</span></div>
+  <div class="mtitle">メニュー表　表面<span class="arw" style="left:296px">▼</span><span class="arw" style="left:663px">▼</span></div>
+  <div class="mt">
+    <table class="mtab" id="frontL" style="width:368px"></table>
+    <table class="mtab" id="frontR" style="width:371px"></table>
+  </div>
+  <div class="mnote"><span>※ メニュー表の価格は円、税抜です。</span><b>メニュー表は裏面に続きます。⇒</b></div>
+
+  <div class="feeblk">
+    <div class="feeL">
+      <table class="fee" style="width:404px">
+        <colgroup><col style="width:186px"><col style="width:100px"><col style="width:16px"><col style="width:102px"></colgroup>
+        <tr><th class="fhl">作業料金</th><th>見積（作業前）</th><th></th><th>結果（作業後）</th></tr>
+        <tr class="h34"><td class="lb"><b>メニュー表　合計額（税抜）</b><div class="sub" style="margin-top:4px">※ 表面 ＋ 裏面</div></td>
+          <td class="amt"><span class="tot" id="e_menu"></span><span class="yen">円</span></td><td class="gp"></td>
+          <td class="amt"><span class="tot" id="r_menu"></span><span class="yen">円</span></td></tr>
+        <tr class="h24"><td class="lb"><b>ゴールドメンバーズ割引特典（税抜）</b></td>
+          <td class="amt"><span class="tiny">1回分</span><span class="minus">－</span><input class="gi" data-k="e1" inputmode="numeric" autocomplete="off"><span class="yen">円</span></td><td class="gp"></td>
+          <td class="amt"><span class="tiny">1回分</span><span class="minus">－</span><input class="gi" data-k="r1" inputmode="numeric" autocomplete="off"><span class="yen">円</span></td></tr>
+        <tr class="h24"><td class="lb small">※ 対象の方は年間2回分使用できます。<br>　1回分につき18,182円（税抜）まで割引。</td>
+          <td class="amt"><span class="tiny">1回分</span><span class="minus">－</span><input class="gi" data-k="e2" inputmode="numeric" autocomplete="off"><span class="yen">円</span></td><td class="gp"></td>
+          <td class="amt"><span class="tiny">1回分</span><span class="minus">－</span><input class="gi" data-k="r2" inputmode="numeric" autocomplete="off"><span class="yen">円</span></td></tr>
+        <tr class="h28"><td class="lb"><b>その他の調整額（税抜）</b></td>
+          <td class="amt"><span class="minus">－</span><input class="ai" data-k="e" inputmode="numeric" autocomplete="off"><span class="yen">円</span></td><td class="gp"></td>
+          <td class="amt"><span class="minus">－</span><input class="ai" data-k="r" inputmode="numeric" autocomplete="off"><span class="yen">円</span></td></tr>
+        <tr class="h28"><td class="lb"><b>合計額（税抜）</b></td>
+          <td class="amt"><span class="tot" id="e_sub"></span><span class="yen">円</span></td><td class="gp"></td>
+          <td class="amt"><span class="tot" id="r_sub"></span><span class="yen">円</span></td></tr>
+        <tr class="h28"><td class="lb"><b>消費税額</b><div class="sub" style="margin-top:3px">※ 1円未満の端数は切り上げて記入。</div></td>
+          <td class="amt"><span class="tot" id="e_tax"></span><span class="yen">円</span></td><td class="gp"></td>
+          <td class="amt"><span class="tot" id="r_tax"></span><span class="yen">円</span></td></tr>
+        <tr class="h28"><td class="lb"><b>合計額（税込）</b></td>
+          <td class="amt thick"><span class="tot" id="e_total"></span><span class="yen">円</span></td><td class="gp"></td>
+          <td class="amt thick"><span class="tot" id="r_total"></span><span class="yen">円</span></td></tr>
+      </table>
+      <div class="same"><span class="cb" id="sameCb"></span> 見積と同じ</div>
+      <div class="sigbox"><div class="siglbl">作業前のご署名</div><div class="sigarea" data-sig="sigB"><img alt="" hidden><span class="sighint">タップして署名</span></div></div>
+    </div>
+    <div class="feeR">
+      <div class="nh">＜作業料金について＞</div>
+      <div class="ni">1．作業料金は、本作業の翌月または翌々月に、コミュファ光の月額利用料と合わせて請求いたします。</div>
+      <div class="ni">2．作業料金がメニュー表の割引価格で記入されている場合も、次のときは通常価格での請求となる場合がございます。</div>
+      <div class="ni2">a．請求までの間に安心サポート(Plus)をご解約されたとき</div>
+      <div class="ni2">b．過去1年以内に、安心サポート(Plus)による訪問サポート割引の適用を受けているとき（訪問キャンセル料金の無料化を含む。）</div>
+      <div class="ni">3．作業開始後に、見積内容の変更が必要になる場合がございます。その場合は作業者が事前に説明し、お客さまの承諾を得ます。</div>
+      <div class="nh" style="margin-top:6px">＜その他＞</div>
+      <div class="ni">4．一般的でない機器、メーカーのサポートが終了している機器などに関する作業は完了できない場合がございます。</div>
+      <div class="ni">5．作業は十分に注意して行いますが、機器に保存されたデータの保全、完全性についての保証はいたしかねます。</div>
+      <div class="ni">6．機器へのパスワード入力などのご協力をお願いする場合がございます。</div>
+      <div class="ni">7．貴重品などは予めお仕舞いくださいますようお願いいたします。</div>
+    </div>
+  </div>
+
+  <div class="dt-h"><b>作業詳細</b><span>（作業した機器等のメーカー・型番、作業結果、完了しない場合はその理由、お客さまに覚えておいていただきたいこと など）</span></div>
+  <div class="dt-box"><textarea id="detail" class="detail"></textarea></div>
+
+  <div class="sigrow2">
+    <div class="siglbl">作業後のご署名</div>
+    <div class="sigarea" data-sig="sigA"><img alt="" hidden><span class="sighint">タップして署名</span></div>
+    <div class="confirm"><div>・作業の完了（完了していない場合はその理由）を確認しました。</div><div>・作業対象の機器や作業場所の周囲に、傷や汚れがないことを確認しました。</div></div>
+  </div>
+  <div class="foot"><span>《お問い合わせ先》 コミュファ コンタクトセンター　TEL: <span class="tel">0120－218－919</span>（年中無休 10:00〜18:00、携帯電話可）</span><span>20260908 版</span></div>
+</section>
+
+<!-- ================= 裏面 ================= -->
+<section class="page p2" id="p2">
+  <div class="p2-head"><span><b>メニュー表　裏面</b>　<small>（表面の続きです。）</small></span><span class="r">中部テレコミュニケーション株式会社（<i>ctc</i>）</span></div>
+  <div class="mt" style="margin-top:2px">
+    <table class="mtab" id="backL" style="width:369px"></table>
+    <table class="mtab" id="backR" style="width:370px"></table>
+  </div>
+  <div class="foot2"><span>※ メニュー表の価格は円、税抜です。</span><span>20260908 版</span></div>
+</section>
+
+</div></div></div></main>
+
+<div class="modal" id="sigModal" hidden>
+  <div class="sheet">
+    <div class="sheet-h"><b id="sigTitle">ご署名</b><span>枠内にApple Pencilまたは指でサインしてください</span></div>
+    <canvas id="sigCanvas"></canvas>
+    <div class="sheet-f">
+      <button class="btn" id="sigClear">書き直す</button>
+      <button class="btn" id="sigDel">署名を消去</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="sigCancel">キャンセル</button>
+      <button class="btn primary" id="sigOk">完了</button>
+    </div>
+  </div>
+</div>
+<div id="busy" hidden>PDFを作成しています…</div>
+<div id="toast"></div>
+
+<script>
+/* ========== メニューデータ ========== */
+const FL=[
+ {id:'f1',name:'<b>基本料金</b>　<span class="nt">※ コースには含まれています。</span>',plain:'基本料金',n:3000,s:0},
+ {id:'f2',name:'訪問キャンセル料金',n:3000,s:0},
+ {h:'＜インターネット接続コース＞'},
+ {id:'f3',name:'基本パック (パソコン1台)',n:7700,s:2350},
+ {id:'f4',name:'基本パック (パソコン1台) +光電話関連作業',n:8400,s:2700},
+ {id:'f5',name:'基本パック (パソコン2台)',n:12300,s:4650},
+ {id:'f6',name:'基本パック (パソコン2台) +光電話関連作業',n:13000,s:5000},
+ {id:'f7',name:'基本パック (パソコン3台)',n:16900,s:6950},
+ {id:'f8',name:'基本パック (パソコン3台) +光電話関連作業',n:17600,s:7300},
+ {id:'f9',name:'引越しパック (パソコン1台)',n:8000,s:2500},
+ {id:'f10',name:'引越しパック (パソコン2台)',n:11300,s:4150},
+ {id:'f11',name:'引越しパック (パソコン3台)',n:14700,s:5850},
+ {h:'＜パソコン買い替え・追加購入コース＞'},
+ {id:'f12',name:'基本パック (パソコン1台)',n:12500,s:4750},
+ {id:'f13',name:'プリンタパック (パソコン1台)',n:15100,s:6050},
+ {h:'＜パソコントラブル訪問コース＞'},
+ {id:'f14',name:'パソコンハードウエア診断パック (2時間まで)',n:11200,s:4100},
+ {id:'f15',name:'パソコンハードウエア診断パック (延長30分)',n:3300,s:1650},
+];
+const FR=[
+ {id:'f16',name:'ウイルス診断・駆除パック (2時間まで)',n:11300,s:4150},
+ {id:'f17',name:'ウイルス診断・駆除パック (延長30分)',n:3300,s:1650},
+ {id:'f18',name:'パソコン初期化パック (2時間まで)',n:11300,s:4150},
+ {id:'f19',name:'パソコン初期化パック (延長30分)',n:3300,s:1650},
+ {h:'＜ゲーム機インターネット接続コース＞'},
+ {id:'f20',name:'基本パック (ゲーム機1台)',n:6400,s:1700},
+ {id:'f21',name:'基本パック (ゲーム機2台)',n:9600,s:3300},
+ {id:'f22',name:'基本パック (ゲーム機3台)',n:12800,s:4900},
+ {blank:true},{vnote:true}
+];
+const BL_RAW=[
+ ['【ネット1】パソコン又はゲーム機設定',4200,2100],['【ネット2】PLCアダプタの接続・設定',3000,1500],['【ネット3】ネットワーク家電LAN接続・設定',3800,1900],['【ネット4】モバイルインターネット接続設定',4900,2450],['【ネット5】タブレット端末の接続設定',7900,3950],['【ネット6】スマートホーム設定 (1時間まで)',8000,4000],['【ネット6】スマートホーム設定 (延長30分)',4000,2000],
+ ['【PC1】メール設定',1000,500],['【PC2】プリンタ設定 (パソコン1台)',5100,2550],['【PC3】プリンタ設定 (パソコン3台まで)',7700,3850],['【PC4】周辺機器取付',4100,2050],['【PC5】パソコン新規開封・設置',4100,2050],['【PC6】LANアダプタの取り付け設定',1800,900],['【PC7】ファイル共有設定',4000,2000],['【PC8】メモリ増設',3000,1500],['【PC9】パソコン基本レッスン (1時間まで)',8100,4050],['【PC10】サービスパックのインストール',8800,4400],['【PC11】Windows Updateによる更新',7100,3550],['【PC12】Windows Update自動更新の設定',2000,1000],['【PC13】リカバリーCD作成',5700,2850],['【PC14】コミュファサービス基本操作説明',7700,3850],
+ ['【データ1】基本バックアップ',5200,2600],['【データ2】特殊バックアップ',8100,4050],['【データ3】バックアップデータ戻し',5200,2600],['【データ4】アドレス帳移行',4000,2000],['【データ5】お気に入り移行',4000,2000],['【データ6】デジタルカメラデータ移行',5700,2850],
+ ['【ソフト1】セキュリティソフトインストール',3300,1650],['【ソフト2】デジタルオーディオ設定＆レッスン',7700,3850],['【ソフト3】デジタルカメラ画像取り込み＆編集',9700,4850],['【ソフト4】Webカメラ (USB) 設定',4000,2000],['【ソフト5】Skype設定',4000,2000],['【ソフト6】ソフトウエアインストール',3000,1500],['【ソフト7】はがき作成ソフト住所録移行',4000,2000],
+ ['【電話1】光電話関連作業',2300,1150],['【電話2】光電話とドアホンの接続',3100,1550],['【電話3】050 IP電話接続・設定',3000,1500],['【電話4】ホームテレホン接続',3100,1550],
+ ['【トラブル1】ハードウエア診断 (2時間まで)',9500,4750],['【トラブル1】ハードウエア診断 (延長30分)',3300,1650],['【トラブル2】ウイルス診断・駆除 (2時間まで)',9500,4750],['【トラブル2】ウイルス診断・駆除 (延長30分)',3300,1650],['【トラブル3】パソコン初期化 (2時間まで)',9500,4750],['【トラブル3】パソコン初期化 (延長30分)',3300,1650],
+ ['【TV1】テレビ・録画機の接続設定',1200,600],['【TV2】テレビ・周辺機器新規開封',4000,2000],['【TV3】デジタルチューナー接続・設定',7000,3500],['【TV4】アクトビラ対応機器接続・設定',4000,2000],['【TV5】U-NEXT接続・設定',4000,2000],['【TV6】セットトップボックス接続・設定',4000,2000],['【TV7】テレビLAN接続・設定',4000,2000],['【TV8】録画機LAN接続・設定',4000,2000],
+ ['機器代行購入',1200,600],['現場調査費用',2200,1100],['電話線組替作業',2200,1100],
+ ['ケーブル敷設 (電話、屋内) 5m',1400,700],['ケーブル敷設 (電話、屋内) 10m',3800,1900],['ケーブル敷設 (電話、屋内) 20m',6200,3100],['ケーブル敷設 (電話、屋外) 5m',2800,1400],['ケーブル敷設 (電話、屋外) 10m',7600,3800],['ケーブル敷設 (電話、屋外) 20m',12400,6200],['ケーブル敷設 (LAN Cat5e、屋内) 5m',1400,700],['ケーブル敷設 (LAN Cat5e、屋内) 10m',3800,1900]
+];
+const BR_RAW=[
+ ['ケーブル敷設 (LAN Cat5e、屋内) 20m',6200,3100],['ケーブル敷設 (LAN Cat5e、屋外) 5m',3400,1700],['ケーブル敷設 (LAN Cat5e、屋外) 10m',8800,4400],['ケーブル敷設 (LAN Cat5e、屋外) 20m',14400,7200],
+ ['ケーブル敷設 (LAN Cat6、屋内) 5m',2600,1300],['ケーブル敷設 (LAN Cat6、屋内) 10m',7000,3500],['ケーブル敷設 (LAN Cat6、屋内) 20m',11000,5500],['ケーブル敷設 (LAN Cat6、屋外) 5m',4800,2400],['ケーブル敷設 (LAN Cat6、屋外) 10m',13000,6500],['ケーブル敷設 (LAN Cat6、屋外) 20m',21000,10500],
+ ['ケーブル敷設 (LAN Cat6A、屋内) 5m',4500,2250],['ケーブル敷設 (LAN Cat6A、屋内) 10m',8900,4450],['ケーブル敷設 (LAN Cat6A、屋内) 20m',17400,8700],['ケーブル敷設 (LAN Cat6A、屋外) 5m',7900,3950],['ケーブル敷設 (LAN Cat6A、屋外) 10m',16800,8400],['ケーブル敷設 (LAN Cat6A、屋外) 20m',31400,15700],
+ ['モジュラプラグ取付 (電話)',800,400],['モジュラプラグ取付 (LAN Cat5e)',1400,700],['モジュラプラグ取付 (LAN Cat6)',3000,1500],['モジュラプラグ取付 (LAN Cat6A)',4300,2150],
+ ['ローゼット取付 (電話)',1200,600],['ローゼット取付 (LAN Cat5e)',3000,1500],['ローゼット取付 (LAN Cat6)',5600,2800],['ローゼット取付 (LAN Cat6A)',6500,3250],
+ ['電話コンセント取付',1400,700],['LANコンセント取付 (LAN Cat5e)',3200,1600],['LANコンセント取付 (LAN Cat6)',5400,2700],['LANコンセント取付 (LAN Cat6A)',6800,3400],
+ ['壁穴あけ',1600,800],['モール取付 (電話・LANケーブル用) 1m',300,150],
+ ['同軸ケーブル敷設 (屋内、開通後) 1m',1000,500],['同軸ケーブル敷設 (屋内、開通同時) 1m',800,400],['同軸ケーブル敷設 (屋外、開通後) 1m',2000,1000],['同軸ケーブル敷設 (屋外、開通同時) 1m',1400,700],
+ ['ブースター設置 (電源一体型)',10120,5060],['ブースター設置 (電源分離型)',16980,8490],['BSラインブースター設置',5390,2695],
+ ['分配器設置 (屋内、4分配器)',2920,1460],['分配器設置 (屋内、8分配器)',5850,2925],['壁面テレビ端子設置',3200,1600],['BS－IF分波器設置',2600,1300],['テレビ接続用同軸ケーブル取付',2000,1000],
+ ['F型コネクタ取付 (屋内)',600,300],['F型コネクタ取付 (屋外)',1400,700],['テレビプラグ取付',1400,700],
+ ['ケーブル・コード接続 (HDMI) 1.5m',1350,675],['ケーブル・コード接続 (D端子) 2m',2400,1200],['ケーブル・コード接続 (ビデオ端子) 2m',1000,500],
+ ['電源ケーブル設置　10m',4400,2200],['モール取付 (同軸ケーブル用) 1m',400,200],
+ ['分配器設置 (屋外、2分配器)',5400,2700],['分配器設置 (屋外、4分配器)',6000,3000],
+ ['分岐器設置 (1幹線出力、1分岐出力)',2920,1460],['分岐器設置 (1幹線出力、2分岐出力)',4490,2245],
+ ['CS混合 (混合器新設)',19400,9700],['CS混合 (既設混合器利用)',16000,8000],
+ ['アンテナ撤去',24000,12000],['アンテナ設置',24000,12000],['電源コンセント増設',16000,8000],['電源コンセントパネル交換',4000,2000],
+ ['壁面丸穴プレート取付',1800,900],['有料コンサルティング',11400,5700],null
+];
+let bi=0;
+const toB=r=>r?{id:'b'+(++bi),name:r[0],n:r[1],s:r[2],x:!!r[3]}:{blank:true};
+const BL=BL_RAW.map(toB), BR=BR_RAW.map(toB);
+const FRONT=[...FL,...FR].filter(i=>i.id);
+const BACK=[...BL,...BR].filter(i=>i.id&&!i.x);
+const plainName=s=>String(s).replace(/<[^>]+>/g,'').replace(/※.*$/,'').replace(/\s+/g,'').trim();
+/* 裏面→表面の対応（同名・同額の項目があれば表面の該当枠へ） */
+const BMAP={};
+BACK.forEach(b=>{const f=FRONT.find(f=>plainName(f.plain||f.name)===plainName(b.name)&&f.n===b.n&&f.s===b.s);if(f)BMAP[b.id]=f.id;});
+
+/* ========== ユーティリティ ========== */
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const fmt=v=>(v===''||v==null||isNaN(v))?'':Number(v).toLocaleString('ja-JP');
+const toHalf=s=>String(s??'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+const digits=s=>toHalf(s).replace(/[^\d]/g,'');
+const num=v=>{const n=parseInt(digits(v),10);return isFinite(n)?n:0};
+const GOLD_MAX=18182;
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+const blankX=()=>({name:'',n:'',s:'',e:'',r:''});
+function fresh(){return{name:'',visit:'',kubun:'',mc:'',date:today(),t1:'',t2:'',worker:'間瀬',plus:'',past:'',front:{},back:{},extra:[0,1,2,3].map(blankX),gold:{e1:'',e2:'',r1:'',r2:''},adj:{e:'',r:''},same:false,detail:'',sigB:'',sigA:''}}
+const KEY='ctc-visit-estimate-v1';
+let S=fresh();
+try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(d)S=Object.assign(fresh(),d);}catch(e){}
+let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}},300)}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600)}
+
+/* ========== 表の生成 ========== */
+const HEAD='<colgroup><col><col class="cp"><col class="cp"><col class="cq"><col class="cq"></colgroup><thead><tr><th rowspan="2"></th><th rowspan="2">通常<br>価格</th><th rowspan="2">安サポ<br>価格</th><th colspan="2">数量</th></tr><tr><th>見積</th><th>結果</th></tr></thead>';
+const qIn=(t,id,k)=>`<input class="qi" data-t="${t}" data-id="${id}" data-k="${k}" inputmode="numeric" autocomplete="off">`;
+function rowHTML(it,t){
+  if(it.h)return `<tr class="sec"><td colspan="5">${it.h}</td></tr>`;
+  if(it.blank)return '<tr><td></td><td></td><td></td><td></td><td></td></tr>';
+  if(it.vnote)return '<tr class="vn"><td colspan="5">▽ メニュー表にない作業・料金はここに記入。</td></tr>';
+  const q=it.x?'<td class="q slash"></td><td class="q slash"></td>':`<td class="q">${qIn(t,it.id,'e')}</td><td class="q">${qIn(t,it.id,'r')}</td>`;
+  return `<tr><td class="nm">${it.name}</td><td class="pr pn">${fmt(it.n)}</td><td class="pr ps">${fmt(it.s)}</td>${q}</tr>`;
+}
+$('#frontL').innerHTML=HEAD+'<tbody>'+FL.map(i=>rowHTML(i,'f')).join('')+'</tbody>';
+$('#frontR').innerHTML=HEAD+'<tbody>'+FR.map(i=>rowHTML(i,'f')).join('')+[0,1,2,3].map(i=>`<tr class="xr"><td class="nm"><input class="xn" data-i="${i}" autocomplete="off"></td><td class="pr"><input class="xp" data-i="${i}" data-k="n" inputmode="numeric" autocomplete="off"></td><td class="pr"><input class="xp" data-i="${i}" data-k="s" inputmode="numeric" autocomplete="off"></td><td class="q">${qIn('x',i,'e')}</td><td class="q">${qIn('x',i,'r')}</td></tr>`).join('')+'</tbody>';
+$('#backL').innerHTML=HEAD+'<tbody>'+BL.map(i=>rowHTML(i,'b')).join('')+'</tbody>';
+$('#backR').innerHTML=HEAD+'<tbody>'+BR.map(i=>rowHTML(i,'b')).join('')+'</tbody>';
+
+/* ========== 計算 ========== */
+const useS=()=>S.plus==='あり'&&S.past!=='あり';
+const price=it=>useS()?it.s:it.n;
+const hasQ=o=>!!(o&&(num(o.e)||num(o.r)));
+const isBlankX=r=>!r.auto&&!r.over&&!r.name&&!r.n&&!r.s&&!r.e&&!r.r;
+
+function rebuildExtras(){
+  const used=BACK.filter(b=>!BMAP[b.id]&&hasQ(S.back[b.id]));
+  S.extra=S.extra.map(r=>(r.auto||r.over)?blankX():r);
+  const slots=[];S.extra.forEach((r,i)=>{if(isBlankX(r))slots.push(i)});
+  if(!used.length)return;
+  const put=(i,b)=>{S.extra[i]={auto:true,bid:b.id,name:b.name,n:b.n,s:b.s}};
+  if(used.length<=slots.length){used.forEach((b,j)=>put(slots[j],b));}
+  else if(slots.length){
+    const k=slots.length-1;used.slice(0,k).forEach((b,j)=>put(slots[j],b));
+    S.extra[slots[k]]={over:true,name:`ほか ${used.length-k} 件（裏面に記入）`};
+  }
+}
+function menuTotal(k){
+  let t=0;
+  FRONT.forEach(it=>{t+=price(it)*num(S.front[it.id]?.[k])});
+  BACK.forEach(b=>{if(!BMAP[b.id])t+=price(b)*num(S.back[b.id]?.[k])});
+  S.extra.forEach(r=>{if(r.auto||r.over)return;const p=useS()&&digits(r.s)!==''?num(r.s):num(r.n);t+=p*num(r[k])});
+  return t;
+}
+function anyEntry(k){
+  return FRONT.some(it=>num(S.front[it.id]?.[k]))||BACK.some(b=>num(S.back[b.id]?.[k]))||S.extra.some(r=>!r.auto&&!r.over&&num(r[k]))||num(S.gold[k+'1'])||num(S.gold[k+'2'])||num(S.adj[k]);
+}
+function recalc(){
+  ['e','r'].forEach(k=>{
+    if(!anyEntry(k)){['menu','sub','tax','total'].forEach(n=>$('#'+k+'_'+n).textContent='');return}
+    const m=menuTotal(k);
+    const g=Math.min(num(S.gold[k+'1']),GOLD_MAX)+Math.min(num(S.gold[k+'2']),GOLD_MAX);
+    const sub=Math.max(0,m-g-num(S.adj[k]));
+    const tax=Math.ceil(sub/10);
+    $('#'+k+'_menu').textContent=fmt(m);$('#'+k+'_sub').textContent=fmt(sub);
+    $('#'+k+'_tax').textContent=fmt(tax);$('#'+k+'_total').textContent=fmt(sub+tax);
+  });
+}
+function copyER(){
+  [S.front,S.back].forEach(m=>{for(const id in m)m[id].r=m[id].e||''});
+  S.extra.forEach(r=>{if(!r.auto&&!r.over)r.r=r.e||''});
+  S.gold.r1=S.gold.e1;S.gold.r2=S.gold.e2;S.adj.r=S.adj.e;
+}
+
+/* ========== 表示更新 ========== */
+function getQ(t,id,k){
+  if(t==='f')return S.front[id]?.[k]||'';
+  if(t==='b')return S.back[id]?.[k]||'';
+  const r=S.extra[+id];if(r.auto)return S.back[r.bid]?.[k]||'';if(r.over)return '';return r[k]||'';
+}
+function setV(el,v){if(el!==document.activeElement&&el.value!==v)el.value=v}
+function paint(){
+  $$('.qi').forEach(el=>{
+    const{t,id,k}=el.dataset;setV(el,String(getQ(t,id,k)));
+    const ro=(S.same&&k==='r')||(t==='x'&&!!S.extra[+id].over);
+    el.readOnly=ro;el.classList.toggle('ro',ro);
+  });
+  $$('.xn').forEach(el=>{const r=S.extra[+el.dataset.i];setV(el,r.name||'');el.readOnly=!!(r.auto||r.over);el.classList.toggle('ro',el.readOnly)});
+  $$('.xp').forEach(el=>{const r=S.extra[+el.dataset.i];const v=r.over?'':(r.auto?fmt(r[el.dataset.k]):(el===document.activeElement?r[el.dataset.k]:fmt(digits(r[el.dataset.k])===''?'':num(r[el.dataset.k]))));setV(el,String(v));el.readOnly=!!(r.auto||r.over);el.classList.toggle('ro',el.readOnly)});
+  $$('.gi').forEach(el=>{const v=S.gold[el.dataset.k];setV(el,digits(v)===''?'':fmt(num(v)));const ro=S.same&&el.dataset.k[0]==='r';el.readOnly=ro;el.classList.toggle('ro',ro)});
+  $$('.ai').forEach(el=>{const v=S.adj[el.dataset.k];setV(el,digits(v)===''?'':fmt(num(v)));const ro=S.same&&el.dataset.k==='r';el.readOnly=ro;el.classList.toggle('ro',ro)});
+  // 基本情報
+  $('#v_name').textContent=S.name;
+  const[y,m,d]=(S.date||'').split('-');
+  $('#v_y').textContent=y||'';$('#v_m').textContent=m?+m:'';$('#v_d').textContent=d?+d:'';
+  const tt=t=>{if(!t)return '　：　';const[h,mm]=t.split(':');return (+h)+'：'+mm};
+  $('#v_t1').textContent=tt(S.t1);$('#v_t2').textContent=tt(S.t2);
+  $('#v_worker').textContent=S.worker;
+  $$('[data-cb]').forEach(el=>{const[k,v]=el.dataset.cb.split(':');const on=S[k]===v;el.textContent=on?'✓':''});
+  $$('[data-opt]').forEach(el=>{const[k,v]=el.dataset.opt.split(':');el.classList.toggle('on',S[k]===v)});
+  $$('.seg').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',S[sg.dataset.key]===b.dataset.v)));
+  setV($('#in_name'),S.name);setV($('#in_date'),S.date);setV($('#in_t1'),S.t1);setV($('#in_t2'),S.t2);setV($('#in_worker'),S.worker);
+  $('#sameCb').textContent=S.same?'✓':'';
+  setV($('#detail'),S.detail);
+  const pg=$('#pages');pg.classList.toggle('hlS',useS());pg.classList.toggle('hlN',!useS());
+  $('#modeLbl').textContent=useS()?'計算単価：安サポ価格':(S.plus==='あり'&&S.past==='あり'?'計算単価：通常価格（過去1年以内に割引適用）':'計算単価：通常価格');
+  $$('.sigarea').forEach(a=>{const src=S[a.dataset.sig];const img=a.querySelector('img');if(src){img.src=src;img.hidden=false;a.querySelector('.sighint').hidden=true}else{img.hidden=true;img.removeAttribute('src');a.querySelector('.sighint').hidden=false}});
+  recalc();
+}
+function changed(){if(S.same)copyER();rebuildExtras();paint();save()}
+
+/* ========== 入力イベント ========== */
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(el.matches('.qi')){
+    const{t,id,k}=el.dataset;const v=digits(el.value);if(el.value!==v)el.value=v;
+    if(t==='f'){(S.front[id]=S.front[id]||{})[k]=v}
+    else if(t==='b'){(S.back[id]=S.back[id]||{})[k]=v;if(BMAP[id])(S.front[BMAP[id]]=S.front[BMAP[id]]||{})[k]=v}
+    else{const r=S.extra[+id];if(r.auto)(S.back[r.bid]=S.back[r.bid]||{})[k]=v;else if(!r.over)r[k]=v}
+    changed();
+  }else if(el.matches('.xn')){S.extra[+el.dataset.i].name=el.value;changed()}
+  else if(el.matches('.xp')){const v=digits(el.value);if(el.value!==v)el.value=v;S.extra[+el.dataset.i][el.dataset.k]=v;changed()}
+  else if(el.matches('.gi')){const v=digits(el.value);if(el.value!==v)el.value=v;S.gold[el.dataset.k]=v;changed()}
+  else if(el.matches('.ai')){const v=digits(el.value);if(el.value!==v)el.value=v;S.adj[el.dataset.k]=v;changed()}
+  else if(el.id==='detail'){S.detail=el.value;save()}
+  else if(el.id==='in_name'){S.name=el.value;changed()}
+  else if(el.id==='in_worker'){S.worker=el.value;changed()}
+  else if(el.id==='in_date'){S.date=el.value;changed()}
+  else if(el.id==='in_t1'){S.t1=el.value;changed()}
+  else if(el.id==='in_t2'){S.t2=el.value;changed()}
+});
+document.addEventListener('change',e=>{if(['in_date','in_t1','in_t2'].includes(e.target.id)){S[e.target.id.slice(3)]=e.target.value;changed()}});
+document.addEventListener('focusin',e=>{const el=e.target;if(el.matches('.gi,.ai,.xp')&&!el.readOnly)el.value=digits(el.value)});
+document.addEventListener('focusout',e=>{
+  const el=e.target;
+  if(el.matches('.gi')&&num(el.value)>GOLD_MAX){S.gold[el.dataset.k]=String(GOLD_MAX);toast('ゴールドメンバーズ割引は1回分18,182円（税抜）までです');changed();}
+  if(el.matches('.gi,.ai,.xp'))setTimeout(paint,0);
+});
+function setKey(k,v){
+  S[k]=v;
+  if(k==='kubun'){if(v==='普')S.mc='する';else if(v==='特')S.mc='しない';else S.mc=''}
+  if(k==='mc'){if(v==='する')S.kubun='普';else if(v==='しない')S.kubun='特';else S.kubun=''}
+  changed();
+}
+$$('.seg').forEach(sg=>sg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=sg.dataset.key;setKey(k,S[k]===b.dataset.v?'':b.dataset.v)}));
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-cbk]');if(c){const[k,v]=c.dataset.cbk.split(':');setKey(k,S[k]===v?'':v);return}
+  const o=e.target.closest('[data-opt]');if(o){const[k,v]=o.dataset.opt.split(':');setKey(k,S[k]===v?'':v);return}
+  const f=e.target.closest('[data-focus]');if(f){const t=$('#'+f.dataset.focus);$('#panel').classList.remove('collapsed');t.focus();if(t.showPicker&&t.type!=='text'){try{t.showPicker()}catch(_){}}return}
+  const s=e.target.closest('.sigarea');if(s){openSig(s.dataset.sig);return}
+});
+$('#sameCb').addEventListener('click',()=>{S.same=!S.same;if(S.same)toast('見積の内容を結果欄にコピーしました');changed()});
+$('#sameCb').parentElement.style.cursor='pointer';
+$('#sameCb').parentElement.addEventListener('click',e=>{if(e.target.id!=='sameCb')$('#sameCb').click()});
+
+/* ========== 表示倍率 ========== */
+let zoom=null;
+function fit(){
+  const avail=$('#stage').clientWidth-16;
+  const s=zoom??Math.min(avail/794,1.6);
+  $('#scaler').style.transform=`scale(${s})`;
+  $('#wrap').style.width=794*s+'px';
+  $('#wrap').style.height=(1123*2+16)*s+'px';
+  $('#zFit').dataset.s=s;
+}
+window.addEventListener('resize',fit);
+$('#zIn').onclick=()=>{zoom=Math.min(3,(+$('#zFit').dataset.s)*1.15);fit()};
+$('#zOut').onclick=()=>{zoom=Math.max(.4,(+$('#zFit').dataset.s)/1.15);fit()};
+$('#zFit').onclick=()=>{zoom=null;fit()};
+$('#togglePanel').onclick=()=>{const p=$('#panel');p.classList.toggle('collapsed');$('#togglePanel').textContent=p.classList.contains('collapsed')?'▼':'▲';fit()};
+
+/* ========== 新規・印刷 ========== */
+$('#btnNew').onclick=()=>{if(!confirm('入力内容をすべて消去して新しい帳票にしますか？'))return;S=fresh();changed();window.scrollTo(0,0)};
+$('#btnPrint').onclick=()=>window.print();
+
+/* ========== 署名 ========== */
+const cv=$('#sigCanvas'),ctx=cv.getContext('2d');let sigKey=null,drawing=false,last=null,dirty=false,dpr=1;
+function openSig(k){
+  sigKey=k;$('#sigTitle').textContent=k==='sigB'?'作業前のご署名':'作業後のご署名';
+  $('#sigModal').hidden=false;
+  const w=Math.min(window.innerWidth-60,960),h=Math.round(w/3.4);
+  dpr=window.devicePixelRatio||1;cv.style.width=w+'px';cv.style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111';dirty=false;
+}
+const pt=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,p:e.pointerType==='pen'?(e.pressure||.5):.5,pen:e.pointerType==='pen'}};
+cv.addEventListener('pointerdown',e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);drawing=true;last=pt(e);dirty=true;ctx.beginPath();ctx.arc(last.x,last.y,1.3,0,Math.PI*2);ctx.fillStyle='#111';ctx.fill()});
+cv.addEventListener('pointermove',e=>{
+  if(!drawing)return;e.preventDefault();
+  const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+  for(const ev of evs){const p=pt(ev);ctx.lineWidth=p.pen?1.2+p.p*3.4:2.8;ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p}
+});
+['pointerup','pointercancel','pointerleave'].forEach(t=>cv.addEventListener(t,()=>{drawing=false}));
+function trimmed(){
+  const w=cv.width,h=cv.height,d=ctx.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){if(d[(y*w+x)*4+3]>10){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  if(x1<0)return '';const pad=12*dpr;x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(w,x1+pad);y1=Math.min(h,y1+pad);
+  const c=document.createElement('canvas');c.width=x1-x0;c.height=y1-y0;c.getContext('2d').drawImage(cv,x0,y0,c.width,c.height,0,0,c.width,c.height);return c.toDataURL('image/png');
+}
+$('#sigClear').onclick=()=>{ctx.clearRect(0,0,cv.width,cv.height);dirty=false};
+$('#sigDel').onclick=()=>{S[sigKey]='';$('#sigModal').hidden=true;changed()};
+$('#sigCancel').onclick=()=>{$('#sigModal').hidden=true};
+$('#sigOk').onclick=()=>{if(dirty){const u=trimmed();if(u)S[sigKey]=u}$('#sigModal').hidden=true;changed()};
+
+/* ========== PDF保存 ========== */
+$('#btnPdf').onclick=async()=>{
+  if(!window.html2canvas||!window.jspdf){toast('PDF機能を読み込めませんでした。通信状態を確認するか「印刷」からPDF保存してください');return}
+  $('#busy').hidden=false;document.activeElement&&document.activeElement.blur();
+  try{
+    if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+    const{jsPDF}=window.jspdf;const pdf=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+    const pages=$$('.page');
+    for(let i=0;i<pages.length;i++){
+      const pg=pages[i];const orig=[...pg.querySelectorAll('input,textarea')];
+      const c=await html2canvas(pg,{scale:2.5,backgroundColor:'#ffffff',useCORS:true,logging:false,
+        onclone:doc=>{
+          doc.getElementById('scaler').style.transform='none';
+          doc.body.classList.add('exporting');
+          const P=doc.getElementById('pages');P.classList.remove('hlS','hlN');
+          const cl=[...doc.getElementById(pg.id).querySelectorAll('input,textarea')];
+          cl.forEach((el,j)=>{const o=orig[j];const d=doc.createElement('div');d.className='as-text '+(el.className||'').replace(/\bro\b/g,'');if(el.tagName==='TEXTAREA')d.classList.add('ta');d.textContent=o?o.value:'';el.replaceWith(d)});
+        }});
+      if(i>0)pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg',0.93),'JPEG',0,0,210,297);
+    }
+    const nm=(S.name||'お客さま').replace(/[\\/:*?"<>|]/g,'');
+    pdf.save(`訪問サポート見積書_${nm}様_${S.date||today()}.pdf`);
+  }catch(err){console.error(err);toast('PDFの作成に失敗しました：'+err.message)}
+  finally{$('#busy').hidden=true}
+};
+
+rebuildExtras();paint();fit();
+</script>
+</body>
+</html>
